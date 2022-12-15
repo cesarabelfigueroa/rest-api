@@ -96,6 +96,7 @@ const payJob = async (params) => {
   const job = await Job.update(
     {
       paid: true,
+      paymentDate: new Date(),
     },
     { where: { id: params.id }, transaction: params.t }
   );
@@ -167,7 +168,7 @@ const getTotalMoneyUnpaidJobs = async (params) => {
           status: {
             [Op.not]: "terminated",
           },
-          ContractorId: id,
+          ClientId: id,
         },
       },
     ],
@@ -180,10 +181,56 @@ const getTotalMoneyUnpaidJobs = async (params) => {
   return job;
 };
 
+const getBestProfesion = async (req, res, next) => {
+  let start = req.query.start;
+  let end = req.query.end;
+  let result = {};
+
+  const { Job, Contract, Profile } = sequelize.models;
+
+  const jobs = await Job.findAll({
+    attributes: [
+      "Contract.ContractorId",
+      [sequelize.fn("sum", sequelize.col("price")), "benefits"],
+    ],
+    include: [
+      {
+        model: Contract,
+        required: true,
+        include: [
+          {
+            model: Profile,
+            as: "Contractor",
+            required: true,
+          },
+        ],
+      },
+    ],
+    group: ["Contract.ContractorId", "description"],
+    where: {
+      paid: { [Op.eq]: true },
+      createdAt: { [Op.gte]: new Date(start) },
+      paymentDate: { [Op.lte]: new Date(end) },
+    },
+  });
+
+  jobs.forEach((element) => {
+    if (!result[element.Contract.ContractorId]) {
+      result[element.Contract.ContractorId] = element;
+    } else {
+      if (result[element.Contract.ContractorId].benefits < element.benefits) {
+        result[element.Contract.ContractorId] = element;
+      }
+    }
+  });
+  req.result =  Object.values(result);
+  return next();
+};
 module.exports = {
   getUnpaidJobs,
   getJob,
   pay,
   getTotalMoneyUnpaidJobs,
   postBalance,
+  getBestProfesion,
 };

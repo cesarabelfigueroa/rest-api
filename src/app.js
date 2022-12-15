@@ -9,6 +9,7 @@ const {
   getJob,
   pay,
   postBalance,
+  getBestProfesion,
 } = require("./middleware/jobs");
 
 const app = express();
@@ -82,6 +83,14 @@ app.post("/balances/deposit/:userId", postBalance, async (req, res) => {
     sucess: req.balance.errors.length === 0,
   };
   return res.json(result);
+});
+
+/**
+ *
+ * @returns Deposits money into the the the balance of a client, a client can't deposit more than 25% his total of jobs to pay. (at the deposit moment)
+ */
+app.get("/admin/best-profession", getBestProfesion, async (req, res) => {
+  return res.json(req.result);
 });
 
 module.exports = app;
