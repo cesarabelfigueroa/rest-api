@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
 
-const getProfiles = async (req, res, next) => {
+const getContracts = async (req, res, next) => {
   const { Contract } = req.app.get("models");
   const { Profile } = req.app.get("models");
 
@@ -28,4 +28,4 @@ const getProfiles = async (req, res, next) => {
   req.contracts = contracts;
   return next();
 };
-module.exports = { getProfiles };
+module.exports = { getContracts };

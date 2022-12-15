@@ -3,7 +3,9 @@ const { Op } = require("sequelize");
 const bodyParser = require("body-parser");
 const { sequelize } = require("./model");
 const { getProfile } = require("./middleware/getProfile");
-const { getProfiles } = require("./middleware/getProfiles");
+const { getContracts } = require("./middleware/getContracts");
+const { getUnpaidJobs } = require("./middleware/getUnpaidJobs");
+
 const app = express();
 app.use(bodyParser.json());
 app.set("sequelize", sequelize);
@@ -29,10 +31,18 @@ app.get("/contracts/:id", getProfile, async (req, res) => {
 
 /**
  *
- * @returns contract without profile id
+ * @returns contracts without profile id
  */
-app.get("/contracts", getProfiles, async (req, res) => {
+app.get("/contracts", getContracts, async (req, res) => {
   return res.json(req.contracts);
+});
+
+/**
+ *
+ * @returns Get all unpaid jobs for a user (either a client or contractor), for active contracts only.
+ */
+app.get("/jobs/unpaid", getUnpaidJobs, async (req, res) => {
+  return res.json(req.jobs);
 });
 
 module.exports = app;
