@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
 const { sequelize } = require("../model");
 const { updateProfile } = require("./profiles");
+const _PERCENT_AVALIABLE_TO_BALANCE_ = 0.25;
 
 const getUnpaidJobs = async (req, res, next) => {
   const { Job } = sequelize.models;
@@ -53,7 +54,7 @@ const getJob = async (req, res, next) => {
 };
 
 const pay = async (params) => {
-  const { contractor, customer, app, contract, job } = params;
+  const { contractor, customer, job } = params;
   if (customer.balance >= job.price) {
     let customerBalance = customer.balance - job.price;
     let contractorBalance = contractor.balance + job.price;
@@ -102,4 +103,87 @@ const payJob = async (params) => {
   return job;
 };
 
-module.exports = { getUnpaidJobs, getJob, pay };
+const postBalance = async (req, res, next) => {
+  const money = req.body.money;
+  let balance = await getTotalMoneyUnpaidJobs({ id: req.params.userId });
+  if (
+    money <
+    balance.dataValues.total_balance * _PERCENT_AVALIABLE_TO_BALANCE_
+  ) {
+    let contrator = balance.Contract.Contractor;
+    let userBalance = contrator.balance;
+    try {
+      const t = await sequelize.transaction();
+      let profile = await updateProfile({
+        id: req.params.userId,
+        balance: userBalance + money,
+        t: t,
+      });
+
+      await t.commit();
+      req.balance = profile;
+    } catch (error) {
+      await t.rollback();
+
+      req.balance = {
+        errors: [e],
+        data: [],
+      };
+    }
+  } else {
+    req.balance = {
+      errors: [
+        {
+          description: "The client doesn't have funds to receive money.",
+        },
+      ],
+    };
+  }
+
+  return next();
+};
+
+const getTotalMoneyUnpaidJobs = async (params) => {
+  const { Job, Contract, Profile } = sequelize.models;
+  let { id } = params;
+
+  const job = await Job.findOne({
+    attributes: [
+      "Contract.ContractorId",
+      [sequelize.fn("sum", sequelize.col("price")), "total_balance"],
+    ],
+    include: [
+      {
+        model: Contract,
+        required: true,
+        include: [
+          {
+            model: Profile,
+            as: "Contractor",
+            required: true,
+          },
+        ],
+        where: {
+          status: {
+            [Op.not]: "terminated",
+          },
+          ContractorId: id,
+        },
+      },
+    ],
+    group: ["Contract.ContractorId"],
+    where: {
+      paid: { [Op.not]: true },
+    },
+  });
+
+  return job;
+};
+
+module.exports = {
+  getUnpaidJobs,
+  getJob,
+  pay,
+  getTotalMoneyUnpaidJobs,
+  postBalance,
+};

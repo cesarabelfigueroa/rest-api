@@ -3,8 +3,13 @@ const { Op } = require("sequelize");
 const bodyParser = require("body-parser");
 const { sequelize } = require("./model");
 const { getProfile, getProfileHandler } = require("./middleware/profiles");
-const { getContracts } = require("./middleware/contracts");
-const { getUnpaidJobs, getJob, pay } = require("./middleware/jobs");
+const { getContracts, getContract } = require("./middleware/contracts");
+const {
+  getUnpaidJobs,
+  getJob,
+  pay,
+  postBalance,
+} = require("./middleware/jobs");
 
 const app = express();
 app.use(bodyParser.json());
@@ -16,12 +21,9 @@ app.set("models", sequelize.models);
  * @returns contract by profile id
  */
 app.get("/contracts/:id", getProfile, async (req, res) => {
-  if (req.profile.dataValues.id) {
-    const { Contract } = req.app.get("models");
+  if (req.profile.id) {
     const id = req.profile.id;
-    const contract = await Contract.findOne({
-      where: { [Op.or]: [{ ContractorId: id }, { ClientId: id }] },
-    });
+    const contract = await getContract({ id: id });
     if (!contract) return res.status(404).end();
     return res.json(contract);
   } else {
@@ -65,6 +67,19 @@ app.post("/jobs/:job_id/pay", getJob, async (req, res) => {
   let result = {
     errors: payment.errors,
     sucess: payment.errors.length === 0,
+  };
+  return res.json(result);
+});
+
+/**
+ *
+ * @returns Deposits money into the the the balance of a client, a client can't deposit more than 25% his total of jobs to pay. (at the deposit moment)
+ */
+app.post("/balances/deposit/:userId", postBalance, async (req, res) => {
+  req.balance.errors = req.balance.errors || [];
+  let result = {
+    errors: req.balance.errors || [],
+    sucess: req.balance.errors.length === 0,
   };
   return res.json(result);
 });
