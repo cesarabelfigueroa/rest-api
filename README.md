@@ -111,12 +111,13 @@ Below is a list of the required API's for the application.
 
 ## NOTES
 
-In this API I wasn't able to improve:
+In this API I wasn't able to improve because of the time:
 
 1. The structure a little bit creating a file for the constant value, instead of use in several files.
 2. for some endpoints we need to implement validations for the request and response normally we can use OpenAPI to define the model definition
 3. Automated testing.
- 
+4. For dates we support DD/MM/YYYY format
+
 
   
 
