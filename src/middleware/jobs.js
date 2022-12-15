@@ -2,6 +2,7 @@ const { Op } = require("sequelize");
 const { sequelize } = require("../model");
 const { updateProfile } = require("./profiles");
 const _PERCENT_AVALIABLE_TO_BALANCE_ = 0.25;
+const _LIMIT_ = 2;
 
 const getUnpaidJobs = async (req, res, next) => {
   const { Job } = sequelize.models;
@@ -55,21 +56,23 @@ const getJob = async (req, res, next) => {
 
 const pay = async (params) => {
   const { contractor, customer, job } = params;
-  if (customer.balance >= job.price) {
+  if (customer.balance >= job.price && !job.paid) {
     let customerBalance = customer.balance - job.price;
     let contractorBalance = contractor.balance + job.price;
     const t = await sequelize.transaction();
     try {
-      await updateProfile({
-        balance: customerBalance,
-        id: customer.id,
-        t: t,
-      });
-      await updateProfile({
-        balance: contractorBalance,
-        id: contractor.id,
-        t: t,
-      });
+      await Promise.all([
+        updateProfile({
+          balance: customerBalance,
+          id: customer.id,
+          t: t,
+        }),
+        updateProfile({
+          balance: contractorBalance,
+          id: contractor.id,
+          t: t,
+        }),
+      ]);
       let payedJob = await payJob({ id: job.id, t });
       await t.commit();
       return { errors: [], data: payedJob };
@@ -84,7 +87,7 @@ const pay = async (params) => {
     return {
       errors: [
         {
-          description: "The customer doesn't have enough money",
+          description: "The customer doesn't have enough money or is already paid.",
         },
       ],
     };
@@ -184,13 +187,14 @@ const getTotalMoneyUnpaidJobs = async (params) => {
 const getBestProfesion = async (req, res, next) => {
   let start = req.query.start;
   let end = req.query.end;
-  let result = {};
+  let result;
 
   const { Job, Contract, Profile } = sequelize.models;
 
   const jobs = await Job.findAll({
     attributes: [
       "Contract.ContractorId",
+      "description",
       [sequelize.fn("sum", sequelize.col("price")), "benefits"],
     ],
     include: [
@@ -215,17 +219,68 @@ const getBestProfesion = async (req, res, next) => {
   });
 
   jobs.forEach((element) => {
-    if (!result[element.Contract.ContractorId]) {
-      result[element.Contract.ContractorId] = element;
+    if (!result) {
+      result = element;
     } else {
-      if (result[element.Contract.ContractorId].benefits < element.benefits) {
-        result[element.Contract.ContractorId] = element;
+      if (result.dataValues.benefits < element.dataValues.benefits) {
+        result = element;
       }
     }
   });
-  req.result =  Object.values(result);
+  req.result = result;
   return next();
 };
+
+const getBestClients = async (req, res, next) => {
+  let start = req.query.start;
+  let end = req.query.end;
+  let limit = req.query.limit || _LIMIT_;
+
+  const { Job, Contract, Profile } = sequelize.models;
+
+  let jobs = await Job.findAll({
+    order: [["paid", "DESC"]],
+    limit: limit,
+    attributes: [
+      "Contract.Client.firstName",
+      "description",
+      [sequelize.fn("sum", sequelize.col("price")), "paid"],
+    ],
+    include: [
+      {
+        model: Contract,
+        required: true,
+        include: [
+          {
+            model: Profile,
+            as: "Client",
+            required: true,
+          },
+        ],
+      },
+    ],
+    group: ["Contract.ClientId"],
+    where: {
+      paid: { [Op.eq]: true },
+      createdAt: { [Op.gte]: new Date(start) },
+      paymentDate: { [Op.lte]: new Date(end) },
+    },
+  });
+
+  jobs = jobs.map((element) => {
+    return {
+      id: element.Contract.Client.id,
+      fullName:
+        element.Contract.Client.firstName +
+        " " +
+        element.Contract.Client.lastName,
+      paid: element.paid,
+    };
+  });
+  req.result = jobs;
+  return next();
+};
+
 module.exports = {
   getUnpaidJobs,
   getJob,
@@ -233,4 +288,5 @@ module.exports = {
   getTotalMoneyUnpaidJobs,
   postBalance,
   getBestProfesion,
+  getBestClients,
 };

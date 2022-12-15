@@ -109,11 +109,14 @@ Below is a list of the required API's for the application.
 
   
 
-## Going Above and Beyond the Requirements
+## NOTES
 
-Given the time expectations of this exercise, we don't expect anyone to submit anything super fancy, but if you find yourself with extra time, any extra credit item(s) that showcase your unique strengths would be awesome! 🙌
+In this API I wasn't able to improve:
 
-It would be great for example if you'd write some unit test / simple frontend demostrating calls to your fresh APIs.
+1. The structure a little bit creating a file for the constant value, instead of use in several files.
+2. for some endpoints we need to implement validations for the request and response normally we can use OpenAPI to define the model definition
+3. Automated testing.
+ 
 
   
 

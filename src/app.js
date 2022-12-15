@@ -10,6 +10,7 @@ const {
   pay,
   postBalance,
   getBestProfesion,
+  getBestClients
 } = require("./middleware/jobs");
 
 const app = express();
@@ -67,7 +68,7 @@ app.post("/jobs/:job_id/pay", getJob, async (req, res) => {
   const payment = await pay(params);
   let result = {
     errors: payment.errors,
-    sucess: payment.errors.length === 0,
+    success: payment.errors.length === 0,
   };
   return res.json(result);
 });
@@ -80,16 +81,21 @@ app.post("/balances/deposit/:userId", postBalance, async (req, res) => {
   req.balance.errors = req.balance.errors || [];
   let result = {
     errors: req.balance.errors || [],
-    sucess: req.balance.errors.length === 0,
+    success: req.balance.errors.length === 0,
   };
   return res.json(result);
 });
 
 /**
  *
- * @returns Deposits money into the the the balance of a client, a client can't deposit more than 25% his total of jobs to pay. (at the deposit moment)
+ * @returns  Returns the profession that earned the most money (sum of jobs paid) for any contactor that worked in the query time range.
  */
 app.get("/admin/best-profession", getBestProfesion, async (req, res) => {
+  return res.json(req.result);
+});
+
+
+app.get("/admin/best-clients", getBestClients, async (req, res) => {
   return res.json(req.result);
 });
 
